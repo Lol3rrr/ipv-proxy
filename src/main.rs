@@ -8,12 +8,26 @@ use tracing_subscriber::layer::SubscriberExt;
 struct CliArgs {
     #[arg(long, default_value = "http://127.0.0.1:8500")]
     consul_addr: String,
+    #[arg(long, value_enum, default_value = "basic")]
+    log_format: LogFormat,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
+enum LogFormat {
+    Basic,
+    Json,
 }
 
 fn main() {
     let args = CliArgs::parse();
 
-    let tracing_registry = tracing_subscriber::registry().with(tracing_subscriber::fmt::layer());
+    let tracing_registry = tracing_subscriber::registry()
+        .with((args.log_format == LogFormat::Basic).then(|| {
+            tracing_subscriber::fmt::layer()
+        }))
+        .with((args.log_format == LogFormat::Json).then(|| {
+            tracing_subscriber::fmt::layer().event_format(tracing_subscriber::fmt::format::json())
+        }));
     tracing::subscriber::set_global_default(tracing_registry).unwrap();
 
     tracing::info!("Starting up...");
@@ -86,6 +100,12 @@ fn main() {
                 running_handlers.insert(id.clone(), value);
             }
 
+            for (id, (handle, _)) in running_handlers.iter() {
+                if handle.is_finished() {
+                    tracing::warn!(?id, "Task for handle has stopped unexpectedly");
+                }
+            }
+
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
         }
     });
@@ -116,6 +136,7 @@ async fn forward(
             accepted_con = listener.accept() => {
                 match accepted_con {
                     Ok((conn, addr)) => {
+                        tracing::debug!(?addr, "Received new connection");
                         tokio::spawn(forward_con(conn, addr, service.target_addr, shutdown.child_token()));
                     }
                     Err(e) => {
