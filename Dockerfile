@@ -1,8 +1,13 @@
-FROM rust:1.88.0 AS builder
+FROM rust:1.90.0-trixie AS builder
 
 WORKDIR /app/
 COPY . .
 
 RUN cargo build --release
 
-ENTRYPOINT ["/app/target/release/ipv-proxy"]
+FROM debian:trixie
+
+WORKDIR /app/
+COPY --from=builder /app/target/release/ipv-proxy /app/ipv-proxy
+
+ENTRYPOINT ["/app/ipv-proxy"]
