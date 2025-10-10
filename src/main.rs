@@ -100,11 +100,14 @@ fn main() {
                 running_handlers.insert(id.clone(), value);
             }
 
-            for (id, (handle, _)) in running_handlers.iter() {
+            running_handlers.retain(|id, (handle, _)| {
                 if handle.is_finished() {
-                    tracing::warn!(?id, "Task for handle has stopped unexpectedly");
+                    tracing::info!(?id, "Handler stopped unexpectedly");
+                    true
+                } else {
+                    false
                 }
-            }
+            });
 
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
         }
