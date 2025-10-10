@@ -102,10 +102,10 @@ fn main() {
 
             running_handlers.retain(|id, (handle, _)| {
                 if handle.is_finished() {
-                    tracing::info!(?id, "Handler stopped unexpectedly");
-                    true
-                } else {
+                    tracing::warn!(?id, "Handler stopped unexpectedly");
                     false
+                } else {
+                    true
                 }
             });
 
