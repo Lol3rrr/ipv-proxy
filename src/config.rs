@@ -51,6 +51,12 @@ pub async fn update_config(
         tracing::debug!(?service, ?instances, "Instances for service");
 
         for instance in instances.iter() {
+            let protocol = instance.service_tags.iter().find_map(|tag| match tag.as_str() {
+                "ipv_proxy.expose.tcp" => Some(ServiceProtocol::TCP),
+                "ipv_proxy.expose.udp" => Some(ServiceProtocol::UDP),
+                _ => None,
+            }).unwrap_or(ServiceProtocol::TCP);
+
             result.push(ExposedService {
                 name: instance.service_id.clone(),
                 public_port: instance.service_port,
@@ -58,7 +64,7 @@ pub async fn update_config(
                     instance.service_address,
                     instance.service_port,
                 ),
-                protocol: ServiceProtocol::TCP,
+                protocol,
             });
         }
     }
@@ -66,6 +72,7 @@ pub async fn update_config(
     Ok(result)
 }
 
+/// Loads all the services and returns the the tags for each service
 async fn load_services(
     client: &reqwest::Client,
     config: &ConsulConfig,

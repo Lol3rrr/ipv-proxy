@@ -1,8 +1,12 @@
 # IPV-Proxy
+Proxies IPv4 to IPv6 using either "manual" forwarding or jool
 
 ## Config
 
 ## Service Config
+* `ipv_proxy.expose`
+* `ipv_proxy.expose.tcp`
+* `ipv_proxy.expose.udp`
 
 ## Different forwarders
 
