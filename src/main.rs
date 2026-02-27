@@ -37,5 +37,7 @@ fn main() {
         base_addr: reqwest::Url::parse(&args.consul_addr).unwrap(),
     };
 
-    runtime.block_on(ipv_proxy::manage_handlers(consul_config));
+    let backend = ipv_proxy::forward::manual::ManualForwarding::new(std::net::Ipv4Addr::new(0, 0, 0, 0));
+
+    runtime.block_on(ipv_proxy::manage_handlers(consul_config, Box::new(backend)));
 }

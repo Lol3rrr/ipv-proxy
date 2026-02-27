@@ -1,7 +1,7 @@
 pub mod config;
 pub mod forward;
 
-pub async fn manage_handlers(consul_config: config::ConsulConfig) {
+pub async fn manage_handlers(consul_config: config::ConsulConfig, backend: Box<dyn forward::ForwardingBackend>) {
     use std::collections::{HashMap, HashSet};
 
     let client = reqwest::Client::new();
@@ -56,7 +56,7 @@ pub async fn manage_handlers(consul_config: config::ConsulConfig) {
             let service = exposed.iter().find(|exp| &exp.name == id).unwrap();
 
             let cancel_token = tokio_util::sync::CancellationToken::new();
-            let task_handle = tokio::spawn(forward::forward(service.clone(), cancel_token.clone()));
+            let task_handle = tokio::spawn(backend.forward(service.clone(), cancel_token.clone()));
             let value = (task_handle, cancel_token);
 
             running_handlers.insert(id.clone(), value);
