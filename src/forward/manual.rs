@@ -1,6 +1,6 @@
+use super::ForwardingBackend;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::Instrument;
-use super::ForwardingBackend;
 
 #[derive(Debug)]
 pub struct ManualForwarding {
@@ -9,14 +9,16 @@ pub struct ManualForwarding {
 
 impl ManualForwarding {
     pub fn new(public_ip: std::net::Ipv4Addr) -> Self {
-        Self {
-            public_ip,
-        }
+        Self { public_ip }
     }
 }
 
 impl ForwardingBackend for ManualForwarding {
-    fn forward(&self, service: crate::config::ExposedService, shutdown: tokio_util::sync::CancellationToken) -> core::pin::Pin<Box<dyn Future<Output = ()> + Send>> {
+    fn forward(
+        &self,
+        service: crate::config::ExposedService,
+        shutdown: tokio_util::sync::CancellationToken,
+    ) -> core::pin::Pin<Box<dyn Future<Output = ()> + Send>> {
         let public_ip = self.public_ip;
 
         Box::pin(async move {
@@ -54,7 +56,7 @@ impl ForwardingBackend for ManualForwarding {
                     }
                 };
             }
-        }.instrument(tracing::span!(tracing::Level::INFO, "ManualForwarding")))
+        }.instrument(tracing::span!(tracing::Level::INFO, "ManualForwarding", ?service)))
     }
 }
 

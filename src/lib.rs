@@ -1,7 +1,10 @@
 pub mod config;
 pub mod forward;
 
-pub async fn manage_handlers(consul_config: config::ConsulConfig, backend: Box<dyn forward::ForwardingBackend>) {
+pub async fn manage_handlers(
+    consul_config: config::ConsulConfig,
+    backend: Box<dyn forward::ForwardingBackend>,
+) {
     use std::collections::{HashMap, HashSet};
 
     let client = reqwest::Client::new();

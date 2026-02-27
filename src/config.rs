@@ -15,6 +15,13 @@ pub struct ExposedService {
     pub name: String,
     pub public_port: u16,
     pub target_addr: std::net::SocketAddr,
+    pub protocol: ServiceProtocol,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ServiceProtocol {
+    TCP,
+    UDP,
 }
 
 pub async fn update_config(
@@ -51,6 +58,7 @@ pub async fn update_config(
                     instance.service_address,
                     instance.service_port,
                 ),
+                protocol: ServiceProtocol::TCP,
             });
         }
     }
