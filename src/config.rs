@@ -17,8 +17,11 @@ pub struct ExposedService {
     pub target_addr: std::net::SocketAddr,
 }
 
-pub async fn update_config(client: &reqwest::Client, config: &ConsulConfig) -> Result<Vec<ExposedService>, ()> {
-    let services = load_services(&client, config).await?;
+pub async fn update_config(
+    client: &reqwest::Client,
+    config: &ConsulConfig,
+) -> Result<Vec<ExposedService>, ()> {
+    let services = load_services(client, config).await?;
 
     let services_to_expose = services
         .iter()
@@ -30,7 +33,7 @@ pub async fn update_config(client: &reqwest::Client, config: &ConsulConfig) -> R
 
     let mut result = Vec::new();
     for service in services_to_expose.iter() {
-        let instances = match load_service_nodes(&client, service, config).await {
+        let instances = match load_service_nodes(client, service, config).await {
             Ok(instances) => instances,
             Err(e) => {
                 tracing::error!(?e, "Loading Service Nodes");
@@ -55,15 +58,14 @@ pub async fn update_config(client: &reqwest::Client, config: &ConsulConfig) -> R
     Ok(result)
 }
 
-async fn load_services(client: &reqwest::Client, config: &ConsulConfig) -> Result<HashMap<String, Vec<String>>, ()> {
+async fn load_services(
+    client: &reqwest::Client,
+    config: &ConsulConfig,
+) -> Result<HashMap<String, Vec<String>>, ()> {
     let target_url = config.api_url().join("catalog/services").unwrap();
     tracing::debug!(?target_url, "Catalog Services URL");
 
-    let response = match client
-        .get(target_url)
-        .send()
-        .await
-    {
+    let response = match client.get(target_url).send().await {
         Ok(r) => r,
         Err(e) => {
             tracing::error!(?e, "Sending Request");
@@ -107,9 +109,14 @@ pub struct ServiceNode {
 async fn load_service_nodes(
     client: &reqwest::Client,
     service: &str,
-    config: &ConsulConfig
+    config: &ConsulConfig,
 ) -> Result<Vec<ServiceNode>, ()> {
-    let target_url = config.api_url().join("catalog/service/").unwrap().join(service).unwrap();
+    let target_url = config
+        .api_url()
+        .join("catalog/service/")
+        .unwrap()
+        .join(service)
+        .unwrap();
     tracing::debug!(?target_url, "Catalog Service URL");
 
     let response = match client.get(target_url).send().await {
