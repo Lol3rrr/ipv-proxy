@@ -1,5 +1,11 @@
 # IPV-Proxy
 
+## Config
+
+## Service Config
+
+## Different forwarders
+
 ## Release Process
 1. Bump version in the `Cargo.toml`
 2. Push changes to verify everything is working
