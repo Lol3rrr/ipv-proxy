@@ -8,12 +8,26 @@ struct CliArgs {
     consul_addr: String,
     #[arg(long, value_enum, default_value = "basic")]
     log_format: LogFormat,
+    #[arg(long, value_enum, default_value = "manual")]
+    backend: Backend,
+
+    #[arg(long)]
+    public_ip: Option<std::net::Ipv4Addr>,
+
+    #[arg(long, default_value = "ipv-proxy")]
+    jool_instance_name: String,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
 enum LogFormat {
     Basic,
     Json,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
+enum Backend {
+    Manual,
+    Jool,
 }
 
 fn main() {
@@ -37,7 +51,29 @@ fn main() {
         base_addr: reqwest::Url::parse(&args.consul_addr).unwrap(),
     };
 
-    let backend = ipv_proxy::forward::ManualForwarding::new(std::net::Ipv4Addr::new(0, 0, 0, 0));
+    let backend: Box<dyn ipv_proxy::forward::ForwardingBackend> = match args.backend {
+        Backend::Manual => {
+            tracing::info!("Using the manual backend");
 
-    runtime.block_on(ipv_proxy::manage_handlers(consul_config, Box::new(backend)));
+            let exposed_ip = args.public_ip.unwrap_or(std::net::Ipv4Addr::new(0, 0, 0, 0));
+
+            Box::new(ipv_proxy::forward::ManualForwarding::new(exposed_ip))
+        }
+        Backend::Jool => {
+            tracing::info!("Using the jool backend");
+
+            let exposed_ip = match args.public_ip {
+                Some(i) => i,
+                None => {
+                    tracing::error!("Using the jool backend requires the configuration of the public ip");
+
+                    panic!()
+                }
+            };
+
+            Box::new(ipv_proxy::forward::JoolForwarding::new(args.jool_instance_name, exposed_ip))
+        }
+    };
+
+    runtime.block_on(ipv_proxy::manage_handlers(consul_config, backend));
 }
