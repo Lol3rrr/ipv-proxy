@@ -69,6 +69,14 @@ impl JoolForwarding {
 }
 
 impl ForwardingBackend for JoolForwarding {
+    fn startup(&self) -> core::pin::Pin<Box<dyn Future<Output = ()> + Send>> {
+        Box::pin(async move {
+            // TODO
+            // If this jool instance already exists, we should purge it.
+            // If no jool instance exists, we need to create one
+        })
+    }
+
     fn forward(
         &self,
         service: crate::config::ExposedService,

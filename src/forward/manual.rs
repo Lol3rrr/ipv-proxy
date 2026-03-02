@@ -14,6 +14,10 @@ impl ManualForwarding {
 }
 
 impl ForwardingBackend for ManualForwarding {
+    fn startup(&self) -> core::pin::Pin<Box<dyn Future<Output = ()> + Send>> {
+        Box::pin(async move {})
+    }
+
     fn forward(
         &self,
         service: crate::config::ExposedService,
