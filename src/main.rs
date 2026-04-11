@@ -16,6 +16,8 @@ struct CliArgs {
 
     #[arg(long, default_value = "ipv-proxy")]
     jool_instance_name: String,
+    #[arg(long, default_value = None)]
+    jool_pool6_subnet: Option<String>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
@@ -66,12 +68,19 @@ fn main() {
                 Some(i) => i,
                 None => {
                     tracing::error!("Using the jool backend requires the configuration of the public ip");
-
                     panic!()
                 }
             };
 
-            Box::new(ipv_proxy::forward::JoolForwarding::new(args.jool_instance_name, exposed_ip))
+            let pool6_subnet = match args.jool_pool6_subnet {
+                Some(i) => i,
+                None => {
+                    tracing::error!("Using the jool backend requires configuration of the pool6 subnet");
+                    panic!()
+                }
+            };
+
+            Box::new(ipv_proxy::forward::JoolForwarding::new(args.jool_instance_name, pool6_subnet, exposed_ip))
         }
     };
 

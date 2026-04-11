@@ -16,6 +16,8 @@ pub async fn manage_handlers(
         ),
     >::new();
 
+    backend.startup().await;
+
     loop {
         let exposed = match config::update_config(&client, &consul_config).await {
             Ok(exposed) => exposed,

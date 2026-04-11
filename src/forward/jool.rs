@@ -4,13 +4,15 @@ use super::ForwardingBackend;
 
 pub struct JoolForwarding {
     jool_instance: String,
+    pool6_subnet: String,
     public_ip: std::net::Ipv4Addr,
 }
 
 impl JoolForwarding {
-    pub fn new(jool_instance: String, public_ip: std::net::Ipv4Addr) -> Self {
+    pub fn new(jool_instance: impl Into<String>, pool6_subnet: impl Into<String>, public_ip: std::net::Ipv4Addr) -> Self {
         Self {
-            jool_instance,
+            jool_instance: jool_instance.into(),
+            pool6_subnet: pool6_subnet.into(),
             public_ip,
         }
     }
@@ -70,10 +72,30 @@ impl JoolForwarding {
 
 impl ForwardingBackend for JoolForwarding {
     fn startup(&self) -> core::pin::Pin<Box<dyn Future<Output = ()> + Send>> {
+        let instance_name = self.jool_instance.clone();
+        let public_ipv4 = format!("{}", self.public_ip);
+        let pool6_subnet = self.pool6_subnet.clone();
+
         Box::pin(async move {
-            // TODO
-            // If this jool instance already exists, we should purge it.
-            // If no jool instance exists, we need to create one
+            // Remove the jool instance if it exists already
+            let mut command = tokio::process::Command::new("jool");
+            command.args(["instance", "remove", instance_name.as_str()]);
+            command.spawn().unwrap().wait().await;
+
+            // Add the jool instance
+            let mut command = tokio::process::Command::new("jool");
+            command.args(["instance", "add", instance_name.as_str(), "--netfilter", "--pool6", pool6_subnet.as_str()]);
+            command.spawn().unwrap().wait().await;
+
+            // Setup pool for udp
+            let mut command = tokio::process::Command::new("jool");
+            command.args(["-i", instance_name.as_str(), "pool4", "add", "--udp", public_ipv4.as_str(), "1-65535"]);
+            command.spawn().unwrap().wait().await;
+           
+            // Setup pool for tcp
+            let mut command = tokio::process::Command::new("jool");
+            command.args(["-i", instance_name.as_str(), "pool4", "add", "--tcp", public_ipv4.as_str(), "1-65535"]);
+            command.spawn().unwrap().wait().await;
         })
     }
 
@@ -138,7 +160,8 @@ mod tests {
     #[test]
     fn add_tcp_command() {
         let jool_instance = JoolForwarding::new(
-            "example".to_string(),
+            "example",
+            "",
             std::net::Ipv4Addr::new(51, 158, 177, 228),
         );
         let command = jool_instance.construct_add_command(
@@ -159,7 +182,8 @@ mod tests {
     #[test]
     fn remove_tcp_command() {
         let jool_instance = JoolForwarding::new(
-            "example".to_string(),
+            "example",
+            "",
             std::net::Ipv4Addr::new(51, 158, 177, 228),
         );
         let command = jool_instance.construct_remove_command(
