@@ -19,4 +19,7 @@ jobs:
         with:
           toolchain: stable
           override: true
+      - run: |
+          sudo apt-get update
+          sudo apt-get install musl-dev
       - run: cargo build --release --target=x86_64-unknown-linux-musl
