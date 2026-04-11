@@ -15,10 +15,20 @@ pub struct ExposedService {
     pub name: String,
     pub public_port: u16,
     pub target_addr: std::net::SocketAddr,
+    pub protocol: ServiceProtocol,
 }
 
-pub async fn update_config(client: &reqwest::Client, config: &ConsulConfig) -> Result<Vec<ExposedService>, ()> {
-    let services = load_services(&client, config).await?;
+#[derive(Debug, Clone, Copy)]
+pub enum ServiceProtocol {
+    TCP,
+    UDP,
+}
+
+pub async fn update_config(
+    client: &reqwest::Client,
+    config: &ConsulConfig,
+) -> Result<Vec<ExposedService>, ()> {
+    let services = load_services(client, config).await?;
 
     let services_to_expose = services
         .iter()
@@ -30,7 +40,7 @@ pub async fn update_config(client: &reqwest::Client, config: &ConsulConfig) -> R
 
     let mut result = Vec::new();
     for service in services_to_expose.iter() {
-        let instances = match load_service_nodes(&client, service, config).await {
+        let instances = match load_service_nodes(client, service, config).await {
             Ok(instances) => instances,
             Err(e) => {
                 tracing::error!(?e, "Loading Service Nodes");
@@ -41,6 +51,12 @@ pub async fn update_config(client: &reqwest::Client, config: &ConsulConfig) -> R
         tracing::debug!(?service, ?instances, "Instances for service");
 
         for instance in instances.iter() {
+            let protocol = instance.service_tags.iter().find_map(|tag| match tag.as_str() {
+                "ipv_proxy.expose.tcp" => Some(ServiceProtocol::TCP),
+                "ipv_proxy.expose.udp" => Some(ServiceProtocol::UDP),
+                _ => None,
+            }).unwrap_or(ServiceProtocol::TCP);
+
             result.push(ExposedService {
                 name: instance.service_id.clone(),
                 public_port: instance.service_port,
@@ -48,6 +64,7 @@ pub async fn update_config(client: &reqwest::Client, config: &ConsulConfig) -> R
                     instance.service_address,
                     instance.service_port,
                 ),
+                protocol,
             });
         }
     }
@@ -55,15 +72,15 @@ pub async fn update_config(client: &reqwest::Client, config: &ConsulConfig) -> R
     Ok(result)
 }
 
-async fn load_services(client: &reqwest::Client, config: &ConsulConfig) -> Result<HashMap<String, Vec<String>>, ()> {
+/// Loads all the services and returns the the tags for each service
+async fn load_services(
+    client: &reqwest::Client,
+    config: &ConsulConfig,
+) -> Result<HashMap<String, Vec<String>>, ()> {
     let target_url = config.api_url().join("catalog/services").unwrap();
     tracing::debug!(?target_url, "Catalog Services URL");
 
-    let response = match client
-        .get(target_url)
-        .send()
-        .await
-    {
+    let response = match client.get(target_url).send().await {
         Ok(r) => r,
         Err(e) => {
             tracing::error!(?e, "Sending Request");
@@ -107,9 +124,14 @@ pub struct ServiceNode {
 async fn load_service_nodes(
     client: &reqwest::Client,
     service: &str,
-    config: &ConsulConfig
+    config: &ConsulConfig,
 ) -> Result<Vec<ServiceNode>, ()> {
-    let target_url = config.api_url().join("catalog/service/").unwrap().join(service).unwrap();
+    let target_url = config
+        .api_url()
+        .join("catalog/service/")
+        .unwrap()
+        .join(service)
+        .unwrap();
     tracing::debug!(?target_url, "Catalog Service URL");
 
     let response = match client.get(target_url).send().await {
