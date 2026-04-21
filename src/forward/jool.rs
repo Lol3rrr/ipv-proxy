@@ -32,7 +32,7 @@ impl JoolForwarding {
 
         command.args([
             "-i",
-            &format!("\"{}\"", self.jool_instance),
+            self.jool_instance.as_str(),
             "bib",
             "add",
             &format!("{}#{}", target.ip(), target.port()),
@@ -58,7 +58,7 @@ impl JoolForwarding {
 
         command.args([
             "-i",
-            &format!("\"{}\"", self.jool_instance),
+            self.jool_instance.as_str(),
             "bib",
             "remove",
             &format!("{}#{}", target.ip(), target.port()),
