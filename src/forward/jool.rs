@@ -124,13 +124,17 @@ impl ForwardingBackend for JoolForwarding {
                     Ok(output) if output.status.success() => {}
                     Ok(output) => {
                         // TODO
+                        tracing::warn!("[Add] Command ran, but not successfully: {:?}", output);
                     }
                     Err(e) => {
                         // TODO
+                        tracing::warn!("[Add] Failed to execute command: {:?}", e);
                     }
                 };
 
                 shutdown.cancelled().await;
+
+                tracing::info!("Removing forwarding for service");
 
                 // Remove the bib entries again
                 let mut remove_command = tokio::process::Command::from(raw_remove_command);
@@ -138,9 +142,11 @@ impl ForwardingBackend for JoolForwarding {
                     Ok(output) if output.status.success() => {}
                     Ok(output) => {
                         // TODO
+                        tracing::warn!("[Remove] Command ran, but not successfully: {:?}", output);
                     }
                     Err(e) => {
                         // TODO
+                        tracing::warn!("[Remove] Failed to execute command: {:?}", e);
                     }
                 };
             }
