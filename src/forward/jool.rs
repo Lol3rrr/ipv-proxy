@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use tracing::Instrument;
 
 use super::ForwardingBackend;
@@ -78,21 +80,29 @@ impl ForwardingBackend for JoolForwarding {
 
         Box::pin(async move {
             // Remove the jool instance if it exists already
+            tracing::info!("Removing previous jool instance");
             let mut command = tokio::process::Command::new("jool");
             command.args(["instance", "remove", instance_name.as_str()]);
             command.spawn().unwrap().wait().await;
 
+            tokio::time::sleep(Duration::from_secs(5)).await;
+
             // Add the jool instance
+            tracing::info!("Adding jool instance");
             let mut command = tokio::process::Command::new("jool");
             command.args(["instance", "add", instance_name.as_str(), "--netfilter", "--pool6", pool6_subnet.as_str()]);
             command.spawn().unwrap().wait().await;
 
+            tokio::time::sleep(Duration::from_secs(5)).await;
+
             // Setup pool for udp
+            tracing::info!("Setup UDP pool4");
             let mut command = tokio::process::Command::new("jool");
             command.args(["-i", instance_name.as_str(), "pool4", "add", "--udp", public_ipv4.as_str(), "1-65535"]);
             command.spawn().unwrap().wait().await;
            
             // Setup pool for tcp
+            tracing::info!("Setup TCP pool4");
             let mut command = tokio::process::Command::new("jool");
             command.args(["-i", instance_name.as_str(), "pool4", "add", "--tcp", public_ipv4.as_str(), "1-65535"]);
             command.spawn().unwrap().wait().await;
