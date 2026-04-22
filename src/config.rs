@@ -1,12 +1,20 @@
 use std::collections::HashMap;
 
 pub struct ConsulConfig {
-    pub base_addr: reqwest::Url,
+    pub base_addr: Vec<reqwest::Url>,
 }
 
 impl ConsulConfig {
-    pub fn api_url(&self) -> reqwest::Url {
-        self.base_addr.join("/v1/").expect("")
+    pub fn new(addresses: impl Iterator<Item = reqwest::Url>) -> Self {
+        let addresses: Vec<_> = addresses.collect();
+        assert!(!addresses.is_empty());
+        Self {
+            base_addr: addresses,
+        }
+    }
+
+    pub fn api_urls(&self) -> impl Iterator<Item = reqwest::Url> {
+        self.base_addr.iter().map(|base| base.join("/v1/").unwrap())
     }
 }
 
@@ -77,34 +85,38 @@ async fn load_services(
     client: &reqwest::Client,
     config: &ConsulConfig,
 ) -> Result<HashMap<String, Vec<String>>, ()> {
-    let target_url = config.api_url().join("catalog/services").unwrap();
-    tracing::debug!(?target_url, "Catalog Services URL");
+    for api_url in config.api_urls() {
+        let target_url = api_url.join("catalog/services").unwrap();
+        tracing::debug!(?target_url, "Catalog Services URL");
 
-    let response = match client.get(target_url).send().await {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::error!(?e, "Sending Request");
-            return Err(());
-        }
-    };
+        let response = match client.get(target_url).send().await {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!(?e, "Sending Request");
+                continue;
+            }
+        };
 
-    let raw_data = match response.text().await {
-        Ok(d) => d,
-        Err(e) => {
-            tracing::error!(?e, "Response");
-            return Err(());
-        }
-    };
+        let raw_data = match response.text().await {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::error!(?e, "Response");
+                continue;
+            }
+        };
 
-    let test = match serde_json::from_str::<HashMap<String, Vec<String>>>(&raw_data) {
-        Ok(d) => d,
-        Err(e) => {
-            tracing::error!(?e, "Data");
-            return Err(());
-        }
-    };
+        let test = match serde_json::from_str::<HashMap<String, Vec<String>>>(&raw_data) {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::error!(?e, "Data");
+                continue;
+            }
+        };
 
-    Ok(test)
+        return Ok(test);
+    }
+
+    Err(())
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -126,37 +138,40 @@ async fn load_service_nodes(
     service: &str,
     config: &ConsulConfig,
 ) -> Result<Vec<ServiceNode>, ()> {
-    let target_url = config
-        .api_url()
-        .join("catalog/service/")
-        .unwrap()
-        .join(service)
-        .unwrap();
-    tracing::debug!(?target_url, "Catalog Service URL");
+    for api_url in config.api_urls() {
+        let target_url = api_url
+            .join("catalog/service/")
+            .unwrap()
+            .join(service)
+            .unwrap();
+        tracing::debug!(?target_url, "Catalog Service URL");
 
-    let response = match client.get(target_url).send().await {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::error!(?e, "Sending Request");
-            return Err(());
-        }
-    };
+        let response = match client.get(target_url).send().await {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!(?e, "Sending Request");
+                continue;
+            }
+        };
 
-    let raw_data = match response.text().await {
-        Ok(d) => d,
-        Err(e) => {
-            tracing::error!(?e, "Response");
-            return Err(());
-        }
-    };
+        let raw_data = match response.text().await {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::error!(?e, "Response");
+                continue;
+            }
+        };
 
-    let test = match serde_json::from_str::<Vec<ServiceNode>>(&raw_data) {
-        Ok(d) => d,
-        Err(e) => {
-            tracing::error!(?e, "Data");
-            return Err(());
-        }
-    };
+        let test = match serde_json::from_str::<Vec<ServiceNode>>(&raw_data) {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::error!(?e, "Data");
+                continue;
+            }
+        };
 
-    Ok(test)
+        return Ok(test);
+    }
+
+    Err(())
 }

@@ -5,7 +5,7 @@ use tracing_subscriber::layer::SubscriberExt;
 #[derive(Debug, clap::Parser)]
 struct CliArgs {
     #[arg(long, default_value = "http://127.0.0.1:8500")]
-    consul_addr: String,
+    consul_addr: Vec<String>,
     #[arg(long, value_enum, default_value = "basic")]
     log_format: LogFormat,
     #[arg(long, value_enum, default_value = "manual")]
@@ -44,14 +44,14 @@ fn main() {
 
     tracing::info!("Starting up...");
 
+    tracing::info!("Arguments: {:?}", args);
+
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .unwrap();
 
-    let consul_config = ipv_proxy::config::ConsulConfig {
-        base_addr: reqwest::Url::parse(&args.consul_addr).unwrap(),
-    };
+    let consul_config = ipv_proxy::config::ConsulConfig::new(args.consul_addr.iter().map(|raw| reqwest::Url::parse(raw).unwrap()));
 
     let backend: Box<dyn ipv_proxy::forward::ForwardingBackend> = match args.backend {
         Backend::Manual => {
